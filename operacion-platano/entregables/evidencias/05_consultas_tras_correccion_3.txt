@@ -1,0 +1,215 @@
+SELECT c.nombre AS carrera, e.carnet, e.nombre AS estudiante
+FROM estudiante e
+JOIN carrera c ON c.id_carrera = e.id_carrera
+WHERE e.activo = TRUE
+ORDER BY c.nombre, e.nombre;
+          carrera           | carnet  |      estudiante       
+----------------------------+---------+-----------------------
+ Administración de Empresas | 2021003 | Beatriz Solano Vargas
+ Administración de Empresas | 2021007 | Gabriela Mora Lobo
+ Ingeniería en Informática  | 2021001 | Ana Morales Jiménez
+ Ingeniería en Informática  | 2021002 | Carlos Jiménez Rojas
+ Ingeniería en Informática  | 2021005 | Elena Castro Mora
+ Ingeniería en Informática  | 2021006 | Fabián Rojas Araya
+ Ingeniería en Informática  | 2021009 | Irene Lobo Salas
+ Ingeniería en Informática  | 2021010 | Javier Núñez Brenes
+ Ingeniería en Informática  | 2021010 | Javier Núñez Salas
+ Ingeniería Industrial      | 2021004 | Diego Vargas Castro
+ Ingeniería Industrial      | 2021008 | Hugo Araya Núñez
+(11 rows)
+
+SELECT
+    ca.nombre AS carrera,
+    cu.codigo,
+    cu.nombre AS curso,
+    COUNT(DISTINCT g.id_grupo) AS total_grupos,
+    COUNT(m.id_matricula) AS total_matriculas
+FROM carrera ca
+JOIN curso cu
+    ON cu.id_carrera = ca.id_carrera
+LEFT JOIN grupo g
+    ON g.id_curso = cu.id_curso
+LEFT JOIN matricula m
+    ON m.id_grupo = g.id_grupo
+GROUP BY
+    ca.id_carrera,
+    ca.nombre,
+    cu.id_curso,
+    cu.codigo,
+    cu.nombre
+ORDER BY ca.nombre, cu.codigo;
+          carrera           |  codigo  |          curso          | total_grupos | total_matriculas 
+----------------------------+----------+-------------------------+--------------+------------------
+ Administración de Empresas | ADM-2001 | Bases de Datos I        |            1 |                2
+ Ingeniería en Informática  | INF-1001 | Programación I          |            1 |                7
+ Ingeniería en Informática  | INF-1002 | Programación II         |            1 |                2
+ Ingeniería en Informática  | INF-2001 | Bases de Datos I        |            2 |                3
+ Ingeniería en Informática  | INF-2002 | Sistemas Operativos     |            1 |                2
+ Ingeniería en Informática  | INF-2003 | Redes de Computadoras   |            1 |                2
+ Ingeniería en Informática  | INF-4001 | Seminario de Graduación |            1 |                0
+ Ingeniería Industrial      | IND-1001 | Estadística I           |            0 |                0
+(8 rows)
+
+SELECT
+    g.id_grupo,
+    cu.codigo,
+    cu.nombre AS curso,
+    g.cupo,
+    COUNT(DISTINCT m.id_estudiante)
+        FILTER (WHERE m.estado = 'matriculado') AS matriculados
+FROM grupo g
+JOIN curso cu
+    ON cu.id_curso = g.id_curso
+LEFT JOIN matricula m
+    ON m.id_grupo = g.id_grupo
+WHERE g.ciclo = '2026-1'
+GROUP BY
+    g.id_grupo,
+    cu.codigo,
+    cu.nombre,
+    g.cupo
+ORDER BY g.id_grupo;
+ id_grupo |  codigo  |          curso          | cupo | matriculados 
+----------+----------+-------------------------+------+--------------
+        1 | INF-1001 | Programación I          |   30 |            5
+        2 | INF-1002 | Programación II         |   25 |            2
+        3 | INF-2001 | Bases de Datos I        |   30 |            3
+        4 | INF-2002 | Sistemas Operativos     |   20 |            2
+        5 | INF-2003 | Redes de Computadoras   |   20 |            2
+        7 | ADM-2001 | Bases de Datos I        |   25 |            2
+        8 | INF-4001 | Seminario de Graduación |   15 |            0
+(7 rows)
+
+SELECT cu.codigo, cu.nombre, COUNT(m.id_matricula) AS matriculas
+FROM curso cu
+JOIN grupo g ON g.id_curso = cu.id_curso
+JOIN matricula m ON m.id_grupo = g.id_grupo
+WHERE cu.codigo = 'INF-2001'
+GROUP BY cu.codigo, cu.nombre;
+  codigo  |      nombre      | matriculas 
+----------+------------------+------------
+ INF-2001 | Bases de Datos I |          3
+(1 row)
+
+SELECT cu.nombre AS curso, COUNT(m.id_matricula) AS total_matriculas
+FROM curso cu
+JOIN grupo g ON g.id_curso = cu.id_curso
+JOIN matricula m ON m.id_grupo = g.id_grupo
+GROUP BY cu.nombre
+ORDER BY total_matriculas DESC;
+         curso         | total_matriculas 
+-----------------------+------------------
+ Programación I        |                7
+ Bases de Datos I      |                5
+ Redes de Computadoras |                2
+ Programación II       |                2
+ Sistemas Operativos   |                2
+(5 rows)
+
+SELECT
+    COUNT(*) AS total_evaluadas,
+    SUM(CASE WHEN nota >= 70 THEN 1 ELSE 0 END) AS aprobados,
+    ROUND(100.0 * SUM(CASE WHEN nota >= 70 THEN 1 ELSE 0 END) / COUNT(*), 1) AS tasa_aprobacion
+FROM matricula
+WHERE estado = 'matriculado'
+  AND nota <> 0;
+ total_evaluadas | aprobados | tasa_aprobacion 
+-----------------+-----------+-----------------
+              16 |        11 |            68.8
+(1 row)
+
+SELECT e.carnet, e.nombre, m.nota
+FROM matricula m
+JOIN grupo g ON g.id_grupo = m.id_grupo
+JOIN curso cu ON cu.id_curso = g.id_curso
+JOIN estudiante e ON e.id_estudiante = m.id_estudiante
+WHERE cu.codigo = 'INF-2001'
+  AND m.nota > 70
+ORDER BY e.nombre;
+ carnet  |       nombre       | nota 
+---------+--------------------+------
+ 2021010 | Javier Núñez Salas | 90.0
+(1 row)
+
+SELECT e.carnet, e.nombre
+FROM estudiante e
+LEFT JOIN matricula m ON m.id_estudiante = e.id_estudiante
+WHERE m.id_matricula IS NULL
+ORDER BY e.nombre;
+ carnet  |       nombre       
+---------+--------------------
+ 2021006 | Fabián Rojas Araya
+(1 row)
+
+SELECT DISTINCT e.carnet, e.nombre
+FROM estudiante e
+JOIN matricula m ON m.id_estudiante = e.id_estudiante
+JOIN grupo g ON g.id_grupo = m.id_grupo
+WHERE m.nota >= 70
+  AND g.id_curso IN (
+      SELECT r.id_curso_requisito
+      FROM requisito r
+      JOIN curso cu ON cu.id_curso = r.id_curso
+      WHERE cu.codigo = 'INF-2003'
+  )
+ORDER BY e.nombre;
+ carnet  |        nombre        
+---------+----------------------
+ 2021001 | Ana Morales Jiménez
+ 2021002 | Carlos Jiménez Rojas
+ 2021005 | Elena Castro Mora
+ 2021008 | Hugo Araya Núñez
+ 2021009 | Irene Lobo Salas
+(5 rows)
+
+SELECT DISTINCT e.carnet, e.nombre, cu.codigo, cu.creditos
+FROM estudiante e
+JOIN matricula m ON m.id_estudiante = e.id_estudiante
+JOIN grupo g ON g.id_grupo = m.id_grupo
+JOIN curso cu ON cu.id_curso = g.id_curso
+LEFT JOIN requisito r ON r.id_curso = cu.id_curso
+WHERE m.nota >= 70
+ORDER BY e.nombre, cu.codigo;
+ carnet  |        nombre         |  codigo  | creditos 
+---------+-----------------------+----------+----------
+ 2021001 | Ana Morales Jiménez   | INF-1001 |        4
+ 2021001 | Ana Morales Jiménez   | INF-2001 |        4
+ 2021003 | Beatriz Solano Vargas | ADM-2001 |        3
+ 2021002 | Carlos Jiménez Rojas  | INF-1001 |        4
+ 2021002 | Carlos Jiménez Rojas  | INF-2002 |        3
+ 2021002 | Carlos Jiménez Rojas  | INF-2003 |        3
+ 2021005 | Elena Castro Mora     | INF-2002 |        3
+ 2021008 | Hugo Araya Núñez      | INF-1001 |        4
+ 2021009 | Irene Lobo Salas      | INF-1001 |        4
+ 2021010 | Javier Núñez Brenes   | INF-1002 |        4
+ 2021010 | Javier Núñez Salas    | INF-2001 |        4
+(11 rows)
+
+SELECT p.nombre AS profesor, COUNT(g.id_grupo) AS cantidad_grupos
+FROM profesor p
+LEFT JOIN grupo g ON g.id_profesor = p.id_profesor AND g.ciclo = '2026-1'
+GROUP BY p.nombre
+ORDER BY p.nombre;
+        profesor        | cantidad_grupos 
+------------------------+-----------------
+ Esteban Brenes Quirós  |               2
+ Mónica Vega Chaves     |               1
+ Rodrigo A. Salas Umaña |               0
+ Rodrigo Salas Umaña    |               3
+(4 rows)
+
+SELECT cu.codigo AS curso, cu.nombre AS curso_nombre,
+       req.codigo AS requisito, req.nombre AS requisito_nombre
+FROM requisito r
+JOIN curso cu  ON cu.id_curso = r.id_curso
+JOIN curso req ON req.id_curso = r.id_curso_requisito
+ORDER BY cu.codigo;
+  curso   |     curso_nombre      | requisito |  requisito_nombre   
+----------+-----------------------+-----------+---------------------
+ INF-1002 | Programación II       | INF-1001  | Programación I
+ INF-2001 | Bases de Datos I      | INF-1001  | Programación I
+ INF-2002 | Sistemas Operativos   | INF-2002  | Sistemas Operativos
+ INF-2003 | Redes de Computadoras | INF-2002  | Sistemas Operativos
+ INF-2003 | Redes de Computadoras | INF-1001  | Programación I
+(5 rows)
+

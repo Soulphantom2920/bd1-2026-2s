@@ -1,6 +1,6 @@
 # Interacciones con inteligencia artificial — Operación P.L.A.T.A.N.O.
 
-## Modelo: GPT5.6 
+## Modelo: GPT6 
 
 ## Interacción 01 — Auditoría de integridad del esquema
 
@@ -403,3 +403,300 @@ También se incorporaron los archivos `tests/consulta_02_regresion.sql` y `tests
 - `entregables/evidencias/04_regresion_consulta_02.txt`
 
 La modificación de la consulta 2 quedó implementada y verificada funcionalmente. Las correcciones de las demás consultas y del esquema permanecen pendientes.
+
+---
+
+## Interacción 03 — Análisis y corrección de la consulta 3
+
+### Prompt
+
+Analiza la consulta 3 del archivo `operacion-platano/database/03_queries.sql`, correspondiente al proyecto Operación P.L.A.T.A.N.O. del curso IC-4301 Bases de Datos I.
+
+Utiliza `docs/reglas_negocio.md` como única fuente oficial de reglas de negocio y considera las estructuras y datos definidos en `01_schema.sql` y `02_seed.sql`.
+
+La consulta presenta la matrícula por grupo del ciclo `2026-1` para controlar los cupos disponibles.
+
+Durante la auditoría inicial se identificaron los siguientes comportamientos:
+
+- La consulta utiliza `COUNT(*)` después de un `LEFT JOIN` con `matricula`.
+- El grupo 8 aparece con un matriculado, aunque no tiene ningún registro de matrícula.
+- El grupo 1 tiene siete registros de matrícula: uno corresponde a una matrícula retirada y dos pertenecen al mismo estudiante y grupo, debido a una duplicación de datos.
+
+**Solicito:**
+
+1. Analizar la causa de los conteos incorrectos en la consulta original.
+2. Examinar las diferencias entre contar registros de matrícula, matrículas no retiradas y estudiantes distintos matriculados, considerando el propósito del control de cupo.
+3. Determinar qué interpretación está respaldada por las reglas oficiales y cuáles decisiones requieren establecer un criterio adicional.
+4. Proponer una consulta SQL corregida, justificando las uniones, filtros y agregaciones utilizadas.
+5. Identificar los casos límite y las pruebas necesarias para verificar la corrección en PostgreSQL 16.
+6. Señalar cómo podría afectar a este reporte la posterior corrección de los datos duplicados.
+
+No modifiques archivos ni propongas alteraciones al esquema o a los datos. Limita el análisis a la consulta 3 y distingue claramente las reglas oficiales de los criterios técnicos propuestos.
+
+Presenta un análisis concreto y verificable para revisar la solución antes de implementarla.
+
+### Respuesta
+
+## Análisis técnico — Consulta 3: Control de matrícula por grupo
+
+**Archivo:** `operacion-platano/database/03_queries.sql`  
+**Referencia normativa:** `docs/reglas_negocio.md`, sección 4.  
+**Motor de base de datos:** PostgreSQL 16  
+**Estado:** defectos identificados; corrección propuesta, pendiente de ejecución y validación.
+
+### 1. Análisis de la consulta original
+
+La consulta heredada es:
+
+```sql
+SELECT g.id_grupo, cu.codigo, cu.nombre AS curso, g.cupo,
+       COUNT(*) AS matriculados
+FROM grupo g
+JOIN curso cu ON cu.id_curso = g.id_curso
+LEFT JOIN matricula m ON m.id_grupo = g.id_grupo
+WHERE g.ciclo = '2026-1'
+GROUP BY g.id_grupo, cu.codigo, cu.nombre, g.cupo
+ORDER BY g.id_grupo;
+```
+
+Se identifican dos problemas que deben analizarse por separado.
+
+**Defecto A — Conteo incorrecto de grupos sin matrículas**
+
+La consulta utiliza `COUNT(*)` después de un `LEFT JOIN`.
+
+Cuando un grupo no tiene matrículas, `LEFT JOIN` conserva una fila correspondiente al grupo y completa las columnas de `matricula` con `NULL`.
+
+Sin embargo, `COUNT(*)` cuenta todas las filas, incluso aquellas sin una matrícula asociada.
+
+Esto explica el resultado observado:
+
+| Grupo | Curso | Matrículas reales | Resultado original |
+|---|---|---:|---:|
+| 8 | INF-4001 | 0 | 1 |
+
+**Causa raíz:** se cuentan las filas de la unión en lugar de los registros reales de matrícula.
+
+Una primera corrección sería utilizar:
+
+```sql
+COUNT(m.id_matricula)
+```
+
+Esta expresión cuenta exclusivamente valores no nulos de `id_matricula` y, por tanto, devuelve cero cuando un grupo no tiene matrículas.
+
+No obstante, esta corrección por sí sola no resuelve el segundo problema.
+
+**Defecto B — Conteo de registros frente a ocupación del grupo**
+
+La consulta está destinada al control de cupos. Por ello, es necesario distinguir entre la cantidad de registros almacenados y la cantidad de estudiantes que ocupan plazas.
+
+En el grupo 1 existen siete registros:
+
+| Estudiante | Estado | Nota | Observación |
+|---|---|---:|---|
+| Ana Morales | matriculado | 85.0 | Registro válido |
+| Carlos Jiménez | matriculado | 95.0 | Registro válido |
+| Diego Vargas | retirado | `NULL` | Matrícula retirada |
+| Hugo Araya | matriculado | 82.0 | Registro válido |
+| Irene Lobo | matriculado | 70.0 | Primera matrícula |
+| Irene Lobo | matriculado | 68.0 | Matrícula duplicada |
+| Karla Méndez | matriculado | 40.0 | Registro existente |
+
+De estos datos se obtienen tres cantidades diferentes:
+
+| Métrica | Cantidad |
+|---|---:|
+| Registros totales | 7 |
+| Registros no retirados | 6 |
+| Estudiantes distintos no retirados | 5 |
+
+El resultado de siete registros es correcto como conteo físico de filas, pero no necesariamente como medida de ocupación del grupo.
+
+### 2. Interpretación de las reglas oficiales
+
+La sección 4 de `docs/reglas_negocio.md` establece que el par `(id_estudiante, id_grupo)` debe ser único y que las matrículas duplicadas constituyen defectos de datos.
+
+Por tanto, está respaldado por las reglas oficiales que **dos registros del mismo estudiante en un mismo grupo no representan dos intentos legítimos de matrícula**.
+
+En cuanto a los retiros, el documento establece expresamente que `estado = 'retirado'` debe excluirse de los cálculos de aprobación y reprobación.
+
+Sin embargo, **no define explícitamente cómo tratar las matrículas retiradas en un reporte de ocupación de cupos**.
+
+Se distinguen, entonces, dos niveles:
+
+| Criterio | Sustento |
+|---|---|
+| No contar dos veces al mismo estudiante en un grupo | Respaldado por la sección 4 |
+| No considerar las matrículas retiradas como plazas ocupadas | Interpretación operativa razonable, pero no expresamente definida para cupos |
+| Mantener el filtro del ciclo `2026-1` | Alcance declarado de la consulta original |
+
+Para un reporte destinado a controlar los cupos disponibles, resulta técnicamente apropiado contar únicamente los estudiantes distintos cuyo estado sea `matriculado`.
+
+Este criterio se presenta como **propuesta de interpretación**, no como una nueva regla oficial.
+
+### 3. Propuesta de consulta corregida
+
+```sql
+SELECT
+    g.id_grupo,
+    cu.codigo,
+    cu.nombre AS curso,
+    g.cupo,
+    COUNT(DISTINCT m.id_estudiante)
+        FILTER (WHERE m.estado = 'matriculado') AS matriculados
+FROM grupo g
+JOIN curso cu
+    ON cu.id_curso = g.id_curso
+LEFT JOIN matricula m
+    ON m.id_grupo = g.id_grupo
+WHERE g.ciclo = '2026-1'
+GROUP BY
+    g.id_grupo,
+    cu.codigo,
+    cu.nombre,
+    g.cupo
+ORDER BY g.id_grupo;
+```
+
+Esta propuesta conserva las columnas del reporte original y modifica únicamente el mecanismo de conteo.
+
+**Justificación técnica**
+
+**`LEFT JOIN matricula`**
+
+Conserva todos los grupos del ciclo indicado, incluidos aquellos sin matrículas.
+
+**`COUNT(DISTINCT m.id_estudiante)`**
+
+Cuenta estudiantes diferentes, en lugar de registros de matrícula. Esto impide que los dos registros de Irene incrementen artificialmente la ocupación.
+
+**`FILTER (WHERE m.estado = 'matriculado')`**
+
+En PostgreSQL, `FILTER` permite aplicar una condición únicamente a una función de agregación.
+
+En este caso, excluye las matrículas retiradas del conteo sin eliminar los grupos del resultado.
+
+Es importante no trasladar simplemente esa condición al `WHERE` general:
+
+```sql
+WHERE g.ciclo = '2026-1'
+  AND m.estado = 'matriculado'
+```
+
+Esta alternativa excluiría también grupos sin matrículas, porque sus columnas de `matricula` serían `NULL` y no cumplirían el filtro.
+
+**`GROUP BY g.id_grupo`**
+
+Mantiene cada grupo como unidad de agregación. Los grupos de un mismo curso no deben fusionarse, porque poseen cupos y matrículas independientes.
+
+### 4. Resultados esperados
+
+Según `02_seed.sql`, la consulta propuesta debería producir:
+
+| Grupo | Curso | Cupo | Matriculados |
+|---|---|---:|---:|
+| 1 | INF-1001 | 30 | 5 |
+| 2 | INF-1002 | 25 | 2 |
+| 3 | INF-2001 | 30 | 3 |
+| 4 | INF-2002 | 20 | 2 |
+| 5 | INF-2003 | 20 | 2 |
+| 7 | ADM-2001 | 25 | 2 |
+| 8 | INF-4001 | 15 | 0 |
+| **Total** | | **165** | **16** |
+
+Resultados calculados a partir de los datos iniciales, pendientes de ejecución con la consulta propuesta.
+
+Se esperan siete grupos porque el grupo 6 pertenece al ciclo histórico `2025-2` y debe permanecer excluido.
+
+El principal cambio respecto de la consulta original ocurre en los grupos 1 y 8:
+
+- Grupo 1: pasa de 7 registros contabilizados a 5 estudiantes distintos con estado `matriculado`.
+- Grupo 8: pasa de 1 matrícula ficticia a 0 matrículas.
+
+El resto de los grupos conserva sus cantidades actuales.
+
+### 5. Pruebas necesarias
+
+La validación debe comprobar tanto los casos existentes como situaciones que podrían aparecer en el futuro.
+
+| Caso | Resultado esperado |
+|---|---|
+| Grupo sin matrículas | Aparece con `matriculados = 0` |
+| Grupo con varias matrículas válidas | Cuenta cada estudiante una vez |
+| Matrícula con estado `retirado` | No incrementa el conteo de ocupación propuesto |
+| Matrícula duplicada del mismo estudiante | Cuenta una sola plaza |
+| Dos grupos diferentes del mismo curso | Permanecen separados |
+| Grupo perteneciente a otro ciclo | No aparece |
+| Grupo con únicamente matrículas retiradas | Aparece con `matriculados = 0` |
+
+Las últimas condiciones pueden comprobarse mediante pruebas específicas en una transacción que posteriormente se revierta, sin alterar permanentemente los datos originales.
+
+También debe contrastarse el número de filas del reporte con la cantidad real de grupos del ciclo:
+
+```sql
+SELECT COUNT(*) AS total_grupos
+FROM grupo
+WHERE ciclo = '2026-1';
+```
+
+El resultado esperado para los datos iniciales es `7`.
+
+Esta verificación confirma la cobertura, pero no basta por sí sola para validar los conteos. También deben comprobarse los valores por grupo, particularmente los grupos 1 y 8.
+
+### 6. Impacto de corregir posteriormente los datos duplicados
+
+La matrícula duplicada de Irene deberá resolverse durante el saneamiento de los datos, pero todavía no sabemos cuál de las dos calificaciones es la válida.
+
+La consulta propuesta no necesita resolver esa ambigüedad para contar la ocupación: ambas filas representan a la misma estudiante en el mismo grupo.
+
+Si posteriormente se conserva una sola matrícula de Irene, el comportamiento sería:
+
+| Forma de contar | Antes del saneamiento | Después del saneamiento |
+|---|---:|---:|
+| Todos los registros del grupo 1 | 7 | 6 |
+| Registros con estado `matriculado` | 6 | 5 |
+| Estudiantes distintos con estado `matriculado` | 5 | 5 |
+
+Esto demuestra una propiedad favorable de la propuesta: **el conteo de ocupación permanece estable cuando se elimina la duplicación**, siempre que se conserve una matrícula con estado `matriculado` para Irene.
+
+No obstante, `COUNT(DISTINCT ...)` no corrige el defecto de integridad. Solamente evita que afecte este reporte.
+
+La restricción `UNIQUE (id_estudiante, id_grupo)` sigue siendo necesaria para impedir nuevas duplicaciones.
+
+### 7. Conclusión
+
+La consulta 3 presenta un defecto confirmado por el uso de `COUNT(*)` con `LEFT JOIN`, que provoca que los grupos sin matrículas aparezcan con un estudiante matriculado.
+
+Además, utilizar el número de filas como medida de ocupación resulta inadecuado frente a las matrículas duplicadas existentes.
+
+La propuesta mediante:
+
+```sql
+COUNT(DISTINCT m.id_estudiante)
+    FILTER (WHERE m.estado = 'matriculado')
+```
+
+resuelve ambos comportamientos bajo el criterio operativo de que las matrículas retiradas no ocupan cupo.
+
+**Queda una decisión por confirmar:** la regla oficial no define explícitamente la ocupación de plazas tras un retiro. Si el reporte pretende mostrar registros históricos de matrícula en lugar de ocupación efectiva, correspondería utilizar una métrica diferente.
+
+La propuesta no modifica datos, conserva todos los grupos del ciclo y mantiene separados los grupos de un mismo curso.
+
+**Estado final del análisis: EN EVALUACIÓN.** La lógica SQL está definida, pero todavía debe aprobarse el criterio de ocupación y comprobarse su resultado en PostgreSQL 16 antes de implementarla.
+
+### Verificación posterior
+
+Se aprobó el criterio operativo de contar estudiantes distintos con estado `matriculado`, excluyendo las matrículas retiradas del cálculo de ocupación.
+
+La consulta se implementó en `database/03_queries.sql` y se ejecutó sobre PostgreSQL 16. Se obtuvieron los siete grupos del ciclo `2026-1`, con 165 cupos y 16 estudiantes matriculados.
+
+Se comprobaron particularmente los grupos 1 y 8, con cinco y cero estudiantes matriculados, respectivamente.
+
+La prueba de regresión se ejecutó mediante `tests/validar_consulta_03.ps1`, utilizando `tests/consulta_03_regresion.sql`. Todas las comprobaciones terminaron correctamente y la transacción se revirtió con `ROLLBACK`.
+
+**Evidencias:**
+- `entregables/evidencias/05_consultas_tras_correccion_3.txt`
+- `entregables/evidencias/06_regresion_consulta_03.txt`
+
+La consulta 3 quedó implementada y verificada.

@@ -1,0 +1,9 @@
+BEGIN
+CREATE VIEW
+DO
+                    resultado                    
+-------------------------------------------------
+ OK: consulta 03 supera las pruebas de regresion
+(1 row)
+
+ROLLBACK

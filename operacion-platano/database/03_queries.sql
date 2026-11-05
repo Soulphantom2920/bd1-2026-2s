@@ -53,13 +53,24 @@ ORDER BY ca.nombre, cu.codigo;
 -- ----------------------------------------------------------------------------
 -- Consulta 3: Matrícula por grupo del ciclo 2026-1 (control de cupo)
 -- ----------------------------------------------------------------------------
-SELECT g.id_grupo, cu.codigo, cu.nombre AS curso, g.cupo,
-       COUNT(*) AS matriculados
+SELECT
+    g.id_grupo,
+    cu.codigo,
+    cu.nombre AS curso,
+    g.cupo,
+    COUNT(DISTINCT m.id_estudiante)
+        FILTER (WHERE m.estado = 'matriculado') AS matriculados
 FROM grupo g
-JOIN curso cu ON cu.id_curso = g.id_curso
-LEFT JOIN matricula m ON m.id_grupo = g.id_grupo
+JOIN curso cu
+    ON cu.id_curso = g.id_curso
+LEFT JOIN matricula m
+    ON m.id_grupo = g.id_grupo
 WHERE g.ciclo = '2026-1'
-GROUP BY g.id_grupo, cu.codigo, cu.nombre, g.cupo
+GROUP BY
+    g.id_grupo,
+    cu.codigo,
+    cu.nombre,
+    g.cupo
 ORDER BY g.id_grupo;
 
 
