@@ -28,15 +28,25 @@ ORDER BY c.nombre, e.nombre;
 -- Consulta 2: Catálogo de cursos con cantidad de grupos y matrículas totales
 -- por carrera. Reporte usado por la Vicerrectoría para planificación.
 -- ----------------------------------------------------------------------------
-SELECT ca.nombre AS carrera,
-       cu.codigo,
-       cu.nombre AS curso,
-       COUNT(m.id_matricula) AS total_matriculas
+SELECT
+    ca.nombre AS carrera,
+    cu.codigo,
+    cu.nombre AS curso,
+    COUNT(DISTINCT g.id_grupo) AS total_grupos,
+    COUNT(m.id_matricula) AS total_matriculas
 FROM carrera ca
-JOIN curso cu ON cu.id_carrera = ca.id_carrera
-JOIN grupo g ON g.id_curso = cu.id_curso
-JOIN matricula m ON m.id_grupo = g.id_grupo
-GROUP BY ca.nombre, cu.codigo, cu.nombre
+JOIN curso cu
+    ON cu.id_carrera = ca.id_carrera
+LEFT JOIN grupo g
+    ON g.id_curso = cu.id_curso
+LEFT JOIN matricula m
+    ON m.id_grupo = g.id_grupo
+GROUP BY
+    ca.id_carrera,
+    ca.nombre,
+    cu.id_curso,
+    cu.codigo,
+    cu.nombre
 ORDER BY ca.nombre, cu.codigo;
 
 
