@@ -1,0 +1,26 @@
+BEGIN
+CREATE VIEW
+    escenario    | carnet  |        nombre        
+-----------------+---------+----------------------
+ datos_iniciales | 2021002 | Carlos Jiménez Rojas
+(1 row)
+
+DO
+INSERT 0 1
+DO
+UPDATE 1
+DO
+UPDATE 1
+         escenario          | carnet  |        nombre        
+----------------------------+---------+----------------------
+ ambos_requisitos_cumplidos | 2021002 | Carlos Jiménez Rojas
+ ambos_requisitos_cumplidos | 2021005 | Elena Castro Mora
+(2 rows)
+
+DO
+                    resultado                    
+-------------------------------------------------
+ OK: consulta 09 supera las pruebas de regresion
+(1 row)
+
+ROLLBACK

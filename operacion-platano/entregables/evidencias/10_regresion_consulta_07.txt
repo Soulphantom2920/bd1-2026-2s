@@ -1,0 +1,25 @@
+BEGIN
+CREATE VIEW
+    escenario    | carnet  |       nombre        | nota 
+-----------------+---------+---------------------+------
+ datos_iniciales | 2021001 | Ana Morales Jiménez | 70.0
+ datos_iniciales | 2021010 | Javier Núñez Salas  | 90.0
+(2 rows)
+
+DO
+UPDATE 1
+INSERT 0 1
+    escenario    | carnet  |       nombre        | nota 
+-----------------+---------+---------------------+------
+ umbral_y_retiro | 2021001 | Ana Morales Jiménez | 70.0
+ umbral_y_retiro | 2021005 | Elena Castro Mora   | 70.0
+ umbral_y_retiro | 2021010 | Javier Núñez Salas  | 90.0
+(3 rows)
+
+DO
+                    resultado                    
+-------------------------------------------------
+ OK: consulta 07 supera las pruebas de regresion
+(1 row)
+
+ROLLBACK

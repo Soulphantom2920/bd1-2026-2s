@@ -1,0 +1,29 @@
+BEGIN
+CREATE VIEW
+    escenario    | pendientes | total_evaluadas | aprobados | tasa_aprobacion 
+-----------------+------------+-----------------+-----------+-----------------
+ datos_iniciales |          1 |              16 |        11 |            68.8
+(1 row)
+
+DO
+UPDATE 1
+UPDATE 1
+      escenario       | pendientes | total_evaluadas | aprobados | tasa_aprobacion 
+----------------------+------------+-----------------+-----------+-----------------
+ nota_cero_y_retirado |          1 |              16 |        11 |            68.8
+(1 row)
+
+DO
+UPDATE 17
+    escenario     | pendientes | total_evaluadas | aprobados | tasa_aprobacion 
+------------------+------------+-----------------+-----------+-----------------
+ todas_pendientes |         17 |               0 |         0 |                
+(1 row)
+
+DO
+                    resultado                    
+-------------------------------------------------
+ OK: consulta 06 supera las pruebas de regresion
+(1 row)
+
+ROLLBACK

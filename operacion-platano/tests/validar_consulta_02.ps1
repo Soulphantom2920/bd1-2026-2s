@@ -40,7 +40,7 @@ $sqlPrueba = $plantilla.Replace(
 Push-Location $raiz
 
 try {
-    $sqlPrueba | docker compose -p platano_reto_santiago exec -T db `
+    $sqlPrueba | docker compose exec -T db `
         psql -X -v ON_ERROR_STOP=1 -U platano -d platano
 
     if ($LASTEXITCODE -ne 0) {

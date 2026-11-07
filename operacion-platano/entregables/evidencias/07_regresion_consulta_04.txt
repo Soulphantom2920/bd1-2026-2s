@@ -1,0 +1,21 @@
+BEGIN
+CREATE VIEW
+    escenario    |  codigo  |      nombre      | matriculas | matriculas_ciclo_actual 
+-----------------+----------+------------------+------------+-------------------------
+ datos_iniciales | INF-2001 | Bases de Datos I |          3 |                       3
+(1 row)
+
+DO
+INSERT 0 1
+          escenario           |  codigo  |      nombre      | matriculas | matriculas_ciclo_actual 
+------------------------------+----------+------------------+------------+-------------------------
+ matricula_historica_temporal | INF-2001 | Bases de Datos I |          4 |                       3
+(1 row)
+
+DO
+                    resultado                    
+-------------------------------------------------
+ OK: consulta 04 supera las pruebas de regresion
+(1 row)
+
+ROLLBACK

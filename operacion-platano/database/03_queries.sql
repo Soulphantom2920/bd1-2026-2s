@@ -79,7 +79,12 @@ ORDER BY g.id_grupo;
 -- (código INF-2001). Reporte solicitado para evaluar la carga del curso
 -- en el ciclo actual.
 -- ----------------------------------------------------------------------------
-SELECT cu.codigo, cu.nombre, COUNT(m.id_matricula) AS matriculas
+SELECT
+    cu.codigo,
+    cu.nombre,
+    COUNT(m.id_matricula) AS matriculas,
+    COUNT(m.id_matricula)
+        FILTER (WHERE g.ciclo = '2026-1') AS matriculas_ciclo_actual
 FROM curso cu
 JOIN grupo g ON g.id_curso = cu.id_curso
 JOIN matricula m ON m.id_grupo = g.id_grupo
@@ -91,12 +96,15 @@ GROUP BY cu.codigo, cu.nombre;
 -- Consulta 5: Matrícula total histórica por nombre de curso, para detectar
 -- cursos populares a través de las distintas carreras que los ofrecen.
 -- ----------------------------------------------------------------------------
-SELECT cu.nombre AS curso, COUNT(m.id_matricula) AS total_matriculas
+SELECT
+    cu.codigo,
+    cu.nombre AS curso,
+    COUNT(m.id_matricula) AS total_matriculas
 FROM curso cu
 JOIN grupo g ON g.id_curso = cu.id_curso
 JOIN matricula m ON m.id_grupo = g.id_grupo
-GROUP BY cu.nombre
-ORDER BY total_matriculas DESC;
+GROUP BY cu.id_curso, cu.codigo, cu.nombre
+ORDER BY total_matriculas DESC, cu.codigo;
 
 
 -- ----------------------------------------------------------------------------
@@ -114,12 +122,16 @@ ORDER BY total_matriculas DESC;
 -- (excluye del cálculo las matrículas con estado 'retirado')
 -- ----------------------------------------------------------------------------
 SELECT
-    COUNT(*) AS total_evaluadas,
-    SUM(CASE WHEN nota >= 70 THEN 1 ELSE 0 END) AS aprobados,
-    ROUND(100.0 * SUM(CASE WHEN nota >= 70 THEN 1 ELSE 0 END) / COUNT(*), 1) AS tasa_aprobacion
+    COUNT(*) FILTER (WHERE nota IS NULL) AS pendientes,
+    COUNT(nota) AS total_evaluadas,
+    COUNT(*) FILTER (WHERE nota >= 70) AS aprobados,
+    ROUND(
+        100.0 * COUNT(*) FILTER (WHERE nota >= 70)
+        / NULLIF(COUNT(nota), 0),
+        1
+    ) AS tasa_aprobacion
 FROM matricula
-WHERE estado = 'matriculado'
-  AND nota <> 0;
+WHERE estado = 'matriculado';
 
 
 -- ----------------------------------------------------------------------------
@@ -131,7 +143,8 @@ JOIN grupo g ON g.id_grupo = m.id_grupo
 JOIN curso cu ON cu.id_curso = g.id_curso
 JOIN estudiante e ON e.id_estudiante = m.id_estudiante
 WHERE cu.codigo = 'INF-2001'
-  AND m.nota > 70
+  AND m.estado = 'matriculado'
+  AND m.nota >= 70
 ORDER BY e.nombre;
 
 
@@ -157,17 +170,27 @@ ORDER BY e.nombre;
 -- Consulta 9: Estudiantes habilitados para matricular Redes de Computadoras
 -- (código INF-2003), según los requisitos académicos vigentes.
 -- ----------------------------------------------------------------------------
-SELECT DISTINCT e.carnet, e.nombre
+SELECT
+    e.carnet,
+    e.nombre
 FROM estudiante e
-JOIN matricula m ON m.id_estudiante = e.id_estudiante
-JOIN grupo g ON g.id_grupo = m.id_grupo
-WHERE m.nota >= 70
-  AND g.id_curso IN (
-      SELECT r.id_curso_requisito
-      FROM requisito r
-      JOIN curso cu ON cu.id_curso = r.id_curso
-      WHERE cu.codigo = 'INF-2003'
-  )
+JOIN curso objetivo
+    ON objetivo.codigo = 'INF-2003'
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM requisito r
+    WHERE r.id_curso = objetivo.id_curso
+      AND NOT EXISTS (
+          SELECT 1
+          FROM matricula m
+          JOIN grupo g
+              ON g.id_grupo = m.id_grupo
+          WHERE m.id_estudiante = e.id_estudiante
+            AND g.id_curso = r.id_curso_requisito
+            AND m.estado = 'matriculado'
+            AND m.nota >= 70
+      )
+)
 ORDER BY e.nombre;
 
 
@@ -184,13 +207,17 @@ ORDER BY e.nombre;
 -- el cruce con REQUISITO; se agregó DISTINCT y el problema quedó resuelto.
 -- No requiere más revisión.
 -- ----------------------------------------------------------------------------
-SELECT DISTINCT e.carnet, e.nombre, cu.codigo, cu.creditos
+SELECT DISTINCT
+    e.carnet,
+    e.nombre,
+    cu.codigo,
+    cu.creditos
 FROM estudiante e
 JOIN matricula m ON m.id_estudiante = e.id_estudiante
 JOIN grupo g ON g.id_grupo = m.id_grupo
 JOIN curso cu ON cu.id_curso = g.id_curso
-LEFT JOIN requisito r ON r.id_curso = cu.id_curso
-WHERE m.nota >= 70
+WHERE m.estado = 'matriculado'
+  AND m.nota >= 70
 ORDER BY e.nombre, cu.codigo;
 
 
@@ -198,11 +225,18 @@ ORDER BY e.nombre, cu.codigo;
 -- Consulta 11: Profesores y la cantidad de grupos que imparten en el
 -- ciclo 2026-1
 -- ----------------------------------------------------------------------------
-SELECT p.nombre AS profesor, COUNT(g.id_grupo) AS cantidad_grupos
+SELECT
+    p.id_profesor,
+    p.nombre AS profesor,
+    COUNT(g.id_grupo) AS cantidad_grupos
 FROM profesor p
-LEFT JOIN grupo g ON g.id_profesor = p.id_profesor AND g.ciclo = '2026-1'
-GROUP BY p.nombre
-ORDER BY p.nombre;
+LEFT JOIN grupo g
+    ON g.id_profesor = p.id_profesor
+   AND g.ciclo = '2026-1'
+GROUP BY
+    p.id_profesor,
+    p.nombre
+ORDER BY p.nombre, p.id_profesor;
 
 
 -- ----------------------------------------------------------------------------

@@ -1,0 +1,29 @@
+BEGIN
+CREATE VIEW
+    escenario    | id_profesor |        profesor        | cantidad_grupos 
+-----------------+-------------+------------------------+-----------------
+ datos_iniciales |           3 | Esteban Brenes Quirós  |               2
+ datos_iniciales |           2 | Mónica Vega Chaves     |               1
+ datos_iniciales |           4 | Rodrigo A. Salas Umaña |               0
+ datos_iniciales |           1 | Rodrigo Salas Umaña    |               3
+(4 rows)
+
+DO
+INSERT 0 1
+UPDATE 1
+      escenario       | id_profesor |        profesor        | cantidad_grupos 
+----------------------+-------------+------------------------+-----------------
+ profesores_homonimos |           3 | Esteban Brenes Quirós  |               2
+ profesores_homonimos |           2 | Mónica Vega Chaves     |               1
+ profesores_homonimos |           4 | Rodrigo A. Salas Umaña |               0
+ profesores_homonimos |           1 | Rodrigo Salas Umaña    |               3
+ profesores_homonimos |           7 | Rodrigo Salas Umaña    |               1
+(5 rows)
+
+DO
+                    resultado                    
+-------------------------------------------------
+ OK: consulta 11 supera las pruebas de regresion
+(1 row)
+
+ROLLBACK

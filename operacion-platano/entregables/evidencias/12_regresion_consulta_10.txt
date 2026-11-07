@@ -1,0 +1,46 @@
+BEGIN
+CREATE VIEW
+    escenario    | carnet  |        nombre         |  codigo  | creditos 
+-----------------+---------+-----------------------+----------+----------
+ datos_iniciales | 2021001 | Ana Morales Jiménez   | INF-1001 |        4
+ datos_iniciales | 2021001 | Ana Morales Jiménez   | INF-2001 |        4
+ datos_iniciales | 2021003 | Beatriz Solano Vargas | ADM-2001 |        3
+ datos_iniciales | 2021002 | Carlos Jiménez Rojas  | INF-1001 |        4
+ datos_iniciales | 2021002 | Carlos Jiménez Rojas  | INF-2002 |        3
+ datos_iniciales | 2021002 | Carlos Jiménez Rojas  | INF-2003 |        3
+ datos_iniciales | 2021005 | Elena Castro Mora     | INF-2002 |        3
+ datos_iniciales | 2021008 | Hugo Araya Núñez      | INF-1001 |        4
+ datos_iniciales | 2021009 | Irene Lobo Salas      | INF-1001 |        4
+ datos_iniciales | 2021010 | Javier Núñez Brenes   | INF-1002 |        4
+ datos_iniciales | 2021010 | Javier Núñez Salas    | INF-2001 |        4
+(11 rows)
+
+DO
+UPDATE 1
+DO
+UPDATE 1
+DO
+INSERT 0 1
+          escenario          | carnet  |        nombre         |  codigo  | creditos 
+-----------------------------+---------+-----------------------+----------+----------
+ aprobacion_y_curso_repetido | 2021001 | Ana Morales Jiménez   | INF-1001 |        4
+ aprobacion_y_curso_repetido | 2021001 | Ana Morales Jiménez   | INF-2001 |        4
+ aprobacion_y_curso_repetido | 2021001 | Ana Morales Jiménez   | INF-2003 |        3
+ aprobacion_y_curso_repetido | 2021003 | Beatriz Solano Vargas | ADM-2001 |        3
+ aprobacion_y_curso_repetido | 2021002 | Carlos Jiménez Rojas  | INF-1001 |        4
+ aprobacion_y_curso_repetido | 2021002 | Carlos Jiménez Rojas  | INF-2002 |        3
+ aprobacion_y_curso_repetido | 2021002 | Carlos Jiménez Rojas  | INF-2003 |        3
+ aprobacion_y_curso_repetido | 2021005 | Elena Castro Mora     | INF-2002 |        3
+ aprobacion_y_curso_repetido | 2021008 | Hugo Araya Núñez      | INF-1001 |        4
+ aprobacion_y_curso_repetido | 2021009 | Irene Lobo Salas      | INF-1001 |        4
+ aprobacion_y_curso_repetido | 2021010 | Javier Núñez Brenes   | INF-1002 |        4
+ aprobacion_y_curso_repetido | 2021010 | Javier Núñez Salas    | INF-2001 |        4
+(12 rows)
+
+DO
+                    resultado                    
+-------------------------------------------------
+ OK: consulta 10 supera las pruebas de regresion
+(1 row)
+
+ROLLBACK

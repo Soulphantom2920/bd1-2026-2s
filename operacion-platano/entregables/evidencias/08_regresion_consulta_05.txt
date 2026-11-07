@@ -1,0 +1,19 @@
+BEGIN
+CREATE VIEW
+  codigo  |         curso         | total_matriculas 
+----------+-----------------------+------------------
+ INF-1001 | Programación I        |                7
+ INF-2001 | Bases de Datos I      |                3
+ ADM-2001 | Bases de Datos I      |                2
+ INF-1002 | Programación II       |                2
+ INF-2002 | Sistemas Operativos   |                2
+ INF-2003 | Redes de Computadoras |                2
+(6 rows)
+
+DO
+                    resultado                    
+-------------------------------------------------
+ OK: consulta 05 supera las pruebas de regresion
+(1 row)
+
+ROLLBACK

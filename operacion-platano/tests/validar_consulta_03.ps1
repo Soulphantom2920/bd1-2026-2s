@@ -69,7 +69,7 @@ Push-Location $raiz
 try {
     # Ejecutar PostgreSQL y redirigir los bytes directamente.
     # Se evita Tee-Object para conservar la codificacion UTF-8.
-    $comando = 'docker compose -p platano_reto_santiago exec -T db psql -X -v ON_ERROR_STOP=1 -U platano -d platano < "' +
+    $comando = 'docker compose exec -T db psql -X -v ON_ERROR_STOP=1 -U platano -d platano < "' +
         $temporal + '" > "' + $rutaEvidencia + '" 2>&1'
 
     & cmd.exe /d /c $comando

@@ -86,6 +86,219 @@ La prueba automatizada de regresión verificó los conteos y cupos de cada grupo
 
 ---
 
+## Consulta 4 — Matrícula histórica y del ciclo actual de Bases de Datos I
+
+**Archivo modificado:** `database/03_queries.sql`  
+**Referencia:** encabezado del reporte y `docs/reglas_negocio.md`, sección 3 (identificación del curso).  
+**Estado:** Implementada y verificada mediante regresión.
+
+### Problema identificado y comprobación
+
+La consulta original calculaba únicamente el total histórico de matrículas de `INF-2001`, aunque el encabezado también indicaba que se necesitaba evaluar la carga del ciclo actual. El valor histórico no permite distinguir por sí mismo las matrículas de `2026-1` frente a las de ciclos anteriores.
+
+Con los datos iniciales ambas cantidades son 3; esta coincidencia no demuestra que el reporte distinga correctamente los ciclos.
+
+### Corrección y justificación
+
+Se conservó la estructura de la consulta, su filtro por `cu.codigo = 'INF-2001'` y el alias original `matriculas`. Se añadió una segunda columna:
+
+```sql
+COUNT(m.id_matricula)
+    FILTER (WHERE g.ciclo = '2026-1') AS matriculas_ciclo_actual
+```
+
+De este modo, el primer conteo sigue representando todas las matrículas históricas del curso y el segundo se limita al ciclo indicado, sin restringir el conjunto utilizado por el primer conteo.
+
+### Verificación y pruebas
+
+La prueba obtuvo 3 matrículas históricas y 3 del ciclo `2026-1` en el estado inicial. Al insertar temporalmente una matrícula en el grupo 6, correspondiente a `2025-2`, comprobó 4 matrículas históricas y 3 del ciclo actual. Las verificaciones finalizaron correctamente y la transacción concluyó con `ROLLBACK`.
+
+**Archivos de prueba:**
+- `tests/consulta_04_regresion.sql`
+- `tests/validar_consulta_04.ps1`
+
+**Evidencia:** `entregables/evidencias/07_regresion_consulta_04.txt`.
+
+**Limitación:** se contabilizan registros históricos, incluidos retirados o duplicados que existan en los datos. La prueba no sustituye la corrección de esas anomalías de integridad.
+
+---
+
+## Consulta 5 — Matrícula histórica por curso
+
+**Archivo modificado:** `database/03_queries.sql`  
+**Referencia:** `docs/reglas_negocio.md`, sección 3.  
+**Estado:** Implementada y verificada mediante regresión.
+
+### Problema identificado y comprobación
+
+La consulta original agrupaba por el nombre del curso. Al existir dos cursos distintos denominados «Bases de Datos I», combinaba las 3 matrículas de `INF-2001` y las 2 de `ADM-2001` en un solo resultado de 5. Esto incumplía la regla que impide utilizar el nombre como identificador de un curso.
+
+### Corrección y justificación
+
+Se añadió `cu.codigo` al resultado y se agrupó por `cu.id_curso`, `cu.codigo` y `cu.nombre`. Se conservó el conteo de matrículas históricas y se utilizó el código como criterio adicional de ordenación para los empates.
+
+La separación por identidad del curso evita fusionar matrículas de asignaturas homónimas, aunque pertenezcan a carreras distintas.
+
+### Verificación y pruebas
+
+La regresión comprobó seis cursos con matrículas y un total de 18 registros históricos. Los cursos `INF-2001` y `ADM-2001` aparecieron en filas independientes, con 3 y 2 matrículas, respectivamente. También contrastó los conteos con las matrículas almacenadas para cada `id_curso`. La prueba finalizó correctamente con `ROLLBACK`.
+
+**Archivos de prueba:**
+- `tests/consulta_05_regresion.sql`
+- `tests/validar_consulta_05.ps1`
+
+**Evidencia:** `entregables/evidencias/08_regresion_consulta_05.txt`.
+
+**Limitación:** el reporte presenta cursos con actividad histórica, no un catálogo completo; las uniones internas excluyen cursos sin matrículas. El conteo incluye registros retirados y la duplicación existente de matrícula, cuya integridad se resolverá por separado.
+
+---
+
+## Consulta 6 — Pendientes y tasa general de aprobación
+
+**Archivo modificado:** `database/03_queries.sql`  
+**Referencia:** `docs/reglas_negocio.md`, secciones 4 y 5.  
+**Estado:** Implementada y verificada mediante regresión.
+
+### Problema identificado y comprobación
+
+El filtro original `nota <> 0` descartaba calificaciones legítimas iguales a cero y, por la semántica de `NULL`, también excluía los registros pendientes. En consecuencia, el reporte podía alterar el denominador de la tasa de aprobación y no informaba las calificaciones pendientes.
+
+### Corrección y justificación
+
+Se eliminó `nota <> 0` y se conservaron únicamente las matrículas con `estado = 'matriculado'`. Se incorporaron conteos separados mediante `FILTER` para las pendientes y las aprobadas, `COUNT(nota)` para las evaluadas y `NULLIF(COUNT(nota), 0)` para evitar una división entre cero. La aprobación utiliza `nota >= 70`.
+
+Así se distinguen las notas cero, las pendientes, las evaluadas y las retiradas conforme a las reglas oficiales.
+
+### Verificación y pruebas
+
+Con los datos iniciales se obtuvieron 1 pendiente, 16 evaluadas, 11 aprobadas y una tasa de 68,8 %. La prueba modificó temporalmente una nota a cero y una matrícula retirada a nota 99 para comprobar que no se clasificaran indebidamente. Después dejó temporalmente todas las matrículas activas sin calificación: se obtuvieron 17 pendientes, 0 evaluadas, 0 aprobadas y tasa `NULL`. La prueba finalizó correctamente con `ROLLBACK`.
+
+**Archivos de prueba:**
+- `tests/consulta_06_regresion.sql`
+- `tests/validar_consulta_06.ps1`
+
+**Evidencia:** `entregables/evidencias/09_regresion_consulta_06.txt`.
+
+**Limitación:** las estadísticas todavía reflejan los registros duplicados presentes en el conjunto inicial; el cálculo correcto no corrige esa anomalía de datos.
+
+---
+
+## Consulta 7 — Aprobados en Bases de Datos I (`INF-2001`)
+
+**Archivo modificado:** `database/03_queries.sql`  
+**Referencia:** `docs/reglas_negocio.md`, secciones 3, 4 y 5.  
+**Estado:** Implementada y verificada mediante regresión.
+
+### Problema identificado y comprobación
+
+La consulta heredada aplicaba un umbral de aprobación incorrecto y no descartaba expresamente las matrículas retiradas. La regla oficial establece que la nota 70 exacta aprueba y que una matrícula retirada no debe considerarse aprobada.
+
+### Corrección y justificación
+
+Se aplicó `m.nota >= 70`, se añadió `m.estado = 'matriculado'` y se conservó la identificación del curso mediante el código `INF-2001`. De esta manera se impide mezclar resultados de cursos homónimos de otras carreras.
+
+### Verificación y pruebas
+
+En los datos iniciales aparecieron Ana Morales Jiménez (70) y Javier Núñez Salas (90). Al convertir temporalmente la nota de Elena Castro Mora de 69,9 a 70, pasó a figurar entre las aprobadas. Una matrícula retirada temporal con nota 98 permaneció excluida. El resultado de la regresión fue satisfactorio y terminó con `ROLLBACK`.
+
+**Archivos de prueba:**
+- `tests/consulta_07_regresion.sql`
+- `tests/validar_consulta_07.ps1`
+
+**Evidencia:** `entregables/evidencias/10_regresion_consulta_07.txt`.
+
+**Limitación:** el reporte utiliza los identificadores de estudiante y curso existentes; no resuelve por sí mismo la duplicación de carnets en los datos.
+
+---
+
+## Consulta 9 — Elegibilidad para Redes de Computadoras
+
+**Archivo modificado:** `database/03_queries.sql`  
+**Referencia:** `docs/reglas_negocio.md`, secciones 4, 5 y 6.  
+**Estado:** Implementada y verificada mediante regresión.
+
+### Problema identificado y comprobación
+
+La consulta original consideraba suficiente aprobar alguno de los requisitos de `INF-2003`, cuando la regla oficial exige aprobarlos todos. También era necesario evitar que una matrícula retirada pudiera satisfacer un requisito.
+
+### Corrección y justificación
+
+Se empleó una doble comprobación correlacionada mediante `NOT EXISTS`: un estudiante es elegible únicamente cuando no existe ningún requisito para el cual no tenga una matrícula aprobada válida. Cada aprobación exige `m.estado = 'matriculado'` y `m.nota >= 70`.
+
+Esta condición aplica a cursos con cero, uno o varios requisitos sin asumir una cantidad fija de ellos.
+
+### Verificación y pruebas
+
+Inicialmente solo apareció Carlos Jiménez Rojas, quien cumple los dos requisitos. Una matrícula temporal retirada de Programación I no habilitó a Elena Castro Mora; tampoco lo hizo una nota de 69,9. Al establecer temporalmente la nota en 70 con estado `matriculado`, Elena sí apareció junto con Carlos. La regresión concluyó correctamente con `ROLLBACK`.
+
+**Archivos de prueba:**
+- `tests/consulta_09_regresion.sql`
+- `tests/validar_consulta_09.ps1`
+
+**Evidencia:** `entregables/evidencias/11_regresion_consulta_09.txt`.
+
+**Limitación:** el reporte valida únicamente los requisitos académicos definidos. No incorpora condiciones adicionales de cupo o administración no establecidas por las reglas oficiales.
+
+---
+
+## Consulta 10 — Detalle de cursos y créditos aprobados
+
+**Archivo modificado:** `database/03_queries.sql`  
+**Referencia:** `docs/reglas_negocio.md`, secciones 3, 4 y 5.  
+**Estado:** Implementada y verificada mediante regresión.
+
+### Problema identificado y comprobación
+
+La consulta heredada incorporaba una unión con `requisito` innecesaria para obtener los créditos de un curso; esa relación podía multiplicar filas cuando un curso tenía varios requisitos. Además, al no filtrar las matrículas retiradas, podía considerar aprobada una matrícula con nota suficiente pero estado inválido para el rendimiento académico.
+
+### Corrección y justificación
+
+Se eliminó la unión con `requisito` y se añadió el filtro `m.estado = 'matriculado'`, conservando `m.nota >= 70`. Se mantuvo el formato original de detalle (`carnet`, nombre, código y créditos) y `DISTINCT`, que permite mostrar una sola fila por curso aprobado cuando un estudiante lo aprobó más de una vez.
+
+No se convirtió el reporte en un acumulado de créditos, porque esa modificación no fue establecida como obligatoria por las reglas oficiales ni aprobada para esta consulta.
+
+### Verificación y pruebas
+
+La regresión devolvió inicialmente 11 filas de cursos aprobados, con una suma de 40 créditos en el detalle. Una matrícula retirada con nota 99 no añadió créditos. Al cambiar temporalmente a 70 una nota pendiente de Ana Morales Jiménez, se incorporó su aprobación de `INF-2003`, aumentando el detalle a 12 filas. Una segunda matrícula aprobada de la misma estudiante en `INF-2001` no duplicó la fila del curso. La prueba finalizó correctamente con `ROLLBACK`.
+
+**Archivos de prueba:**
+- `tests/consulta_10_regresion.sql`
+- `tests/validar_consulta_10.ps1`
+
+**Evidencia:** `entregables/evidencias/12_regresion_consulta_10.txt`.
+
+**Limitación:** el reporte refleja los carnets almacenados y no verifica su unicidad. Los dos estudiantes con carnet `2021010` siguen siendo registros distintos en la base, pero esa duplicación constituye una anomalía de integridad pendiente, no una corrección atribuible a esta consulta.
+
+---
+
+## Consulta 11 — Cantidad de grupos por profesor en `2026-1`
+
+**Archivo modificado:** `database/03_queries.sql`  
+**Referencia:** `docs/reglas_negocio.md`, sección 2, y encabezado del reporte.  
+**Estado:** Implementada y verificada mediante regresión.
+
+### Problema identificado y comprobación
+
+La consulta original agrupaba por el nombre del profesor, de modo que dos profesores distintos con el mismo nombre podían fusionarse en una fila. El nombre no es una clave de la tabla `profesor` y no permite distinguir sus asignaciones individuales.
+
+### Corrección y justificación
+
+Se incluyó `p.id_profesor` en la selección y se agrupó por `p.id_profesor` y `p.nombre`. Se conservaron el `LEFT JOIN` y el filtro `g.ciclo = '2026-1'` en la condición `ON`, para mantener los profesores con cero grupos del ciclo en el reporte.
+
+### Verificación y pruebas
+
+La regresión produjo cuatro profesores con 6 grupos asignados en conjunto para el ciclo. Posteriormente se insertó temporalmente un profesor homónimo de Rodrigo Salas Umaña y se le asignó el grupo 8. El reporte mostró cinco identidades diferenciadas, con 7 grupos en total, conservando tres grupos para el Rodrigo original, uno para el homónimo temporal y cero para Rodrigo A. Salas Umaña. La prueba finalizó correctamente con `ROLLBACK`.
+
+**Archivos de prueba:**
+- `tests/consulta_11_regresion.sql`
+- `tests/validar_consulta_11.ps1`
+
+**Evidencia:** `entregables/evidencias/13_regresion_consulta_11.txt`.
+
+**Limitación:** la identificación mediante `id_profesor` no corrige una eventual duplicación de cédulas; ese problema de integridad se evalúa por separado.
+
+---
+
 ## Instrucciones engañosas y documentación contradictoria
 
 Durante la auditoría se identificaron instrucciones y afirmaciones que no deben utilizarse como reglas de negocio.
